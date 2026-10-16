@@ -1,5 +1,7 @@
 # mcptest
 
+[![Tests](https://github.com/manojkhanwalkar/mcptest/actions/workflows/tests.yml/badge.svg)](https://github.com/manojkhanwalkar/mcptest/actions/workflows/tests.yml)
+
 A Spring Boot REST API for **items** and **persons**, wrapped by an
 [MCP](https://modelcontextprotocol.io) server, with a Java MCP client that reads and writes the
 API's data through MCP.
