@@ -166,6 +166,11 @@ report in `test-data/credit-reports/` was made with:
 java -cp target/classes com.example.testdata.creditreport.CreditReportCreator test-data/credit-reports 20261015
 ```
 
+Every report includes at least one account that was late in the past ("Was past due"), one
+account that is past due now ("Open/Past due 30 days"), one account closed in the past 12 months,
+and one open account opened in the past 6 months. The rest of the report is random. Seeds give
+different reports than they did before this was added, so the sample was regenerated.
+
 All data is fake. Creditor and employer names are invented, phone numbers use the reserved
 555-01xx range, SSNs are masked with the never-issued 9xx prefix, and every report starts with
 a "TEST DATA — FICTITIOUS" banner.
@@ -190,14 +195,14 @@ Run the client:
 java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar
 
 # Print one report
-java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar 2416-0737-69
+java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar 0745-2183-16
 
 # List the available reports
 java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar list
 ```
 
 The report goes to stdout exactly as stored, and status lines go to stderr, so
-`... 2416-0737-69 > report.md` saves just the report. An unknown report number prints the error
+`... 0745-2183-16 > report.md` saves just the report. An unknown report number prints the error
 and exits with code 1.
 
 ### Tools

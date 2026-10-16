@@ -62,6 +62,19 @@ public class CreditReportGenerator {
     private static final String[] SOFT_REASONS = {
             "Promotional inquiry", "Account review", "Insurance underwriting", "Consumer disclosure"};
 
+    /**
+     * A scenario forced onto one account so that every report contains it. {@code NONE} leaves
+     * the account fully random.
+     */
+    private enum Role {
+        NONE, PAST_LATE, CURRENTLY_PAST_DUE, RECENTLY_CLOSED, RECENTLY_OPENED;
+
+        /** Roles whose account must still be open on the report date. */
+        boolean staysOpen() {
+            return this == PAST_LATE || this == CURRENTLY_PAST_DUE || this == RECENTLY_OPENED;
+        }
+    }
+
     private final Random random;
     private final LocalDate reportDate;
 
@@ -138,22 +151,52 @@ public class CreditReportGenerator {
         return new PersonalInformation(names, yearOfBirth, ssns, addresses, phones, employers);
     }
 
+    /**
+     * Picks the account types at random, then gives each forced {@link Role} to a different
+     * account so every report has late payments and recently closed and opened accounts.
+     */
     private List<Account> accounts(LocalDate historyStart) {
-        List<Account> accounts = new ArrayList<>();
+        List<AccountType> types = new ArrayList<>();
         for (int i = 0, n = between(2, 5); i < n; i++) {
-            accounts.add(account(AccountType.CREDIT_CARD, historyStart));
+            types.add(AccountType.CREDIT_CARD);
         }
-        if (random.nextInt(4) != 0) accounts.add(account(AccountType.AUTO_LOAN, historyStart));
-        if (random.nextBoolean()) accounts.add(account(AccountType.MORTGAGE, historyStart));
-        if (random.nextBoolean()) accounts.add(account(AccountType.STUDENT_LOAN, historyStart));
-        if (random.nextInt(3) == 0) accounts.add(account(AccountType.PERSONAL_LOAN, historyStart));
-        if (random.nextInt(5) == 0) accounts.add(account(AccountType.HOME_EQUITY_LINE, historyStart));
+        if (random.nextInt(4) != 0) types.add(AccountType.AUTO_LOAN);
+        if (random.nextBoolean()) types.add(AccountType.MORTGAGE);
+        if (random.nextBoolean()) types.add(AccountType.STUDENT_LOAN);
+        if (random.nextInt(3) == 0) types.add(AccountType.PERSONAL_LOAN);
+        if (random.nextInt(5) == 0) types.add(AccountType.HOME_EQUITY_LINE);
+
+        // The cards come first in the list, so this index is always a credit card.
+        int closedCard = random.nextInt((int) types.stream().filter(t -> t == AccountType.CREDIT_CARD).count());
+        List<Role> roles = new ArrayList<>(Collections.nCopies(types.size(), Role.NONE));
+        roles.set(closedCard, Role.RECENTLY_CLOSED);
+
+        List<Role> otherRoles = List.of(Role.RECENTLY_OPENED, Role.CURRENTLY_PAST_DUE, Role.PAST_LATE);
+        while (types.size() < otherRoles.size() + 1) {
+            types.add(AccountType.CREDIT_CARD);
+            roles.add(Role.NONE);
+        }
+        List<Integer> candidates = new ArrayList<>();
+        for (int i = 0; i < types.size(); i++) {
+            if (i != closedCard) candidates.add(i);
+        }
+        Collections.shuffle(candidates, random);
+        for (int i = 0; i < otherRoles.size(); i++) {
+            roles.set(candidates.get(i), otherRoles.get(i));
+        }
+
+        List<Account> accounts = new ArrayList<>();
+        for (int i = 0; i < types.size(); i++) {
+            accounts.add(account(types.get(i), historyStart, roles.get(i)));
+        }
         accounts.sort(Comparator.comparing(Account::dateOpened).reversed());
         return accounts;
     }
 
-    private Account account(AccountType type, LocalDate historyStart) {
-        LocalDate opened = randomDate(historyStart, reportDate.minusMonths(4));
+    private Account account(AccountType type, LocalDate historyStart, Role role) {
+        LocalDate opened = role == Role.RECENTLY_OPENED
+                ? randomDate(reportDate.minusMonths(6), reportDate.minusMonths(1))
+                : randomDate(historyStart, reportDate.minusMonths(4));
         int termMonths = switch (type) {
             case AUTO_LOAN -> pick(new Integer[]{48, 60, 72});
             case MORTGAGE -> pick(new Integer[]{180, 360});
@@ -161,6 +204,10 @@ public class CreditReportGenerator {
             case PERSONAL_LOAN -> pick(new Integer[]{24, 36, 60});
             case CREDIT_CARD, HOME_EQUITY_LINE -> 0;
         };
+        if (role.staysOpen() && termMonths > 0 && ChronoUnit.MONTHS.between(opened, reportDate) >= termMonths) {
+            // Keep the loan within its term so it is still open.
+            opened = randomDate(later(historyStart, reportDate.minusMonths(termMonths - 1)), reportDate.minusMonths(4));
+        }
         long amount = switch (type) {
             case CREDIT_CARD -> roundTo(between(500, 25_000), 100);
             case AUTO_LOAN -> roundTo(between(12_000, 55_000), 100);
@@ -173,9 +220,11 @@ public class CreditReportGenerator {
         long monthsOpen = ChronoUnit.MONTHS.between(opened, reportDate);
         // Installment loans past their term are paid off; some cards are closed by the consumer.
         LocalDate closed = null;
-        if (termMonths > 0 && monthsOpen >= termMonths) {
+        if (role == Role.RECENTLY_CLOSED) {
+            closed = randomDate(later(opened.plusMonths(3), reportDate.minusMonths(12)), reportDate.minusMonths(1));
+        } else if (termMonths > 0 && monthsOpen >= termMonths) {
             closed = opened.plusMonths(termMonths);
-        } else if (type.isRevolving() && random.nextInt(6) == 0) {
+        } else if (!role.staysOpen() && type.isRevolving() && random.nextInt(6) == 0) {
             closed = randomDate(opened.plusMonths(3), reportDate.minusMonths(1));
         }
 
@@ -186,6 +235,9 @@ public class CreditReportGenerator {
             monthlyPayment = 0;
         } else if (type.isRevolving()) {
             balance = Math.round(amount * random.nextDouble() * 0.6);
+            if (role == Role.CURRENTLY_PAST_DUE) {
+                balance = Math.max(balance, Math.round(amount * 0.1));  // a past-due account owes money
+            }
             monthlyPayment = balance == 0 ? 0 : Math.max(25, Math.round(balance * 0.03));
         } else {
             monthlyPayment = amortizedPayment(amount, type == AccountType.MORTGAGE ? 0.065 : 0.08, termMonths);
@@ -193,7 +245,16 @@ public class CreditReportGenerator {
         }
         long highest = type.isRevolving() ? Math.max(balance, Math.round(amount * (0.3 + random.nextDouble() * 0.7))) : amount;
 
-        List<PaymentCode> history = paymentHistory(opened, closed);
+        // Most accounts are clean; about one in five has a late streak.
+        int lateStart = switch (role) {
+            case CURRENTLY_PAST_DUE -> 0;
+            case RECENTLY_OPENED -> -1;
+            // Start at least 2 months back, within the months the account has existed.
+            case PAST_LATE -> between(2, Math.max(2, Math.min(HISTORY_MONTHS - 3, historyLength(opened) - 1)));
+            case NONE, RECENTLY_CLOSED -> random.nextInt(5) == 0 ? between(2, HISTORY_MONTHS - 3) : -1;
+        };
+        int lateLength = role == Role.CURRENTLY_PAST_DUE ? 1 : between(1, 3);
+        List<PaymentCode> history = paymentHistory(opened, closed, lateStart, lateLength);
         String status = status(closed, history, type);
         String creditor = switch (type) {
             case CREDIT_CARD -> pick(CARD_ISSUERS);
@@ -232,11 +293,21 @@ public class CreditReportGenerator {
                 contact);
     }
 
-    /** Most recent month first. Most accounts are clean; about one in five has a late streak. */
-    private List<PaymentCode> paymentHistory(LocalDate opened, LocalDate closed) {
+    /** Number of payment-history months shown for an account opened on {@code opened}. */
+    private int historyLength(LocalDate opened) {
+        int months = 0;
+        while (months < HISTORY_MONTHS && !reportDate.minusMonths(months + 1L).isBefore(opened)) {
+            months++;
+        }
+        return months;
+    }
+
+    /**
+     * Most recent month first. {@code lateStart} is how many months back the late streak begins
+     * (0 = the most recent month), or -1 for no streak.
+     */
+    private List<PaymentCode> paymentHistory(LocalDate opened, LocalDate closed, int lateStart, int lateLength) {
         List<PaymentCode> history = new ArrayList<>();
-        int lateStart = random.nextInt(5) == 0 ? between(2, HISTORY_MONTHS - 3) : -1;
-        int lateLength = between(1, 3);
         for (int m = 0; m < HISTORY_MONTHS; m++) {
             LocalDate month = reportDate.minusMonths(m + 1L);
             if (month.isBefore(opened)) {
