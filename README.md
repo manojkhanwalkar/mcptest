@@ -125,8 +125,18 @@ tool call fails, the client prints the error and exits with code 1.
 | `API_BASE_URL`       | `http://localhost:8080/api/v1`     | mcp-server (the client passes it along) |
 | `MCP_SERVER_JAR`     | `mcp-server/target/mcp-server.jar` | mcp-client                              |
 
-## Running the REST API tests
+## Running the tests
 
 ```bash
-./mvnw test
+./mvnw test                                        # REST API
+./mvnw -f mcp-server/pom.xml test                  # MCP server
+./mvnw -f mcp-client/pom.xml test                  # MCP client
 ```
+
+The MCP tests don't need the REST API running:
+
+- **mcp-server** tests run against a fake REST API (the JDK's built-in HTTP server on a random
+  port). `RestApiMcpServerTest` also starts the real MCP server as a subprocess and talks to it
+  over stdio.
+- **mcp-client** tests start a small fake MCP server (`FakeMcpServer`) over stdio, so they test
+  the client without `mcp-server` or the REST API.

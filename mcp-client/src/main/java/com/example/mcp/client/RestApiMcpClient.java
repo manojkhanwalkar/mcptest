@@ -51,12 +51,17 @@ public class RestApiMcpClient implements AutoCloseable {
      */
     public RestApiMcpClient(String serverJar, String apiBaseUrl) {
         // Launch the server with the same JVM that runs this client.
-        String java = ProcessHandle.current().info().command().orElse("java");
-        ServerParameters params = ServerParameters.builder(java)
+        this(ServerParameters.builder(ProcessHandle.current().info().command().orElse("java"))
                 .args("-jar", serverJar)
                 .addEnvVar("API_BASE_URL", apiBaseUrl)
-                .build();
+                .build());
+    }
 
+    /**
+     * Starts any stdio MCP server described by {@code params} and performs the initialize
+     * handshake. Tests use this to launch a fake server.
+     */
+    public RestApiMcpClient(ServerParameters params) {
         StdioClientTransport transport = new StdioClientTransport(params, json);
         // The server's stderr (its logs) is not part of the protocol; surface it on ours.
         transport.setStdErrorHandler(line -> System.err.println("[mcp-server] " + line));
