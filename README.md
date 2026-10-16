@@ -15,6 +15,7 @@ mcp-client ──(MCP over stdin/stdout)──> mcp-server ──(HTTP)──> R
 | `/` (root)     | REST API server (Spring Boot, spec-first from `src/main/resources/openapi/api.yaml`) |
 | `mcp-server/`  | MCP server that exposes each REST operation as an MCP tool                 |
 | `mcp-client/`  | MCP client that starts `mcp-server` and calls its tools                    |
+| `test-data/`   | Sample output of the dummy credit report generator (see below)             |
 
 ## Prerequisites
 
@@ -127,10 +128,39 @@ tool call fails, the client prints the error and exits with code 1.
 | `API_BASE_URL`       | `http://localhost:8080/api/v1`     | mcp-server (the client passes it along) |
 | `MCP_SERVER_JAR`     | `mcp-server/target/mcp-server.jar` | mcp-client                              |
 
+## Dummy credit report generator
+
+`com.example.testdata.creditreport` (in the root module) generates fictitious consumer credit
+reports for testing and saves them as Markdown. The layout follows the Experian consumer credit
+report: at a glance, personal information, accounts with a 24-month payment history, public
+records, hard and soft inquiries, personal statements, and contact information.
+
+```bash
+./mvnw -q compile
+java -cp target/classes com.example.testdata.creditreport.CreditReportCreator [outputDir] [seed]
+```
+
+| Argument    | Default                    | Meaning                                            |
+|-------------|----------------------------|----------------------------------------------------|
+| `outputDir` | `test-data/credit-reports` | Directory to write to; created if it doesn't exist |
+| `seed`      | random                     | Random seed; the program prints the seed it used   |
+
+The report is written to `<outputDir>/credit-report-<reportNumber>.md`. The same seed gives the
+same report when run on the same day (the report is dated today). For example, the sample
+report in `test-data/credit-reports/` was made with:
+
+```bash
+java -cp target/classes com.example.testdata.creditreport.CreditReportCreator test-data/credit-reports 20261015
+```
+
+All data is fake. Creditor and employer names are invented, phone numbers use the reserved
+555-01xx range, SSNs are masked with the never-issued 9xx prefix, and every report starts with
+a "TEST DATA — FICTITIOUS" banner.
+
 ## Running the tests
 
 ```bash
-./mvnw test                                        # REST API
+./mvnw test                                        # REST API and credit report generator
 ./mvnw -f mcp-server/pom.xml test                  # MCP server
 ./mvnw -f mcp-client/pom.xml test                  # MCP client
 ```
