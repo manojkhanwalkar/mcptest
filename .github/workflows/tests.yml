@@ -29,6 +29,10 @@ jobs:
             pom: mcp-server/pom.xml
           - module: mcp-client
             pom: mcp-client/pom.xml
+          - module: credit-report-mcp-server
+            pom: credit-report-mcp-server/pom.xml
+          - module: credit-report-mcp-client
+            pom: credit-report-mcp-client/pom.xml
 
     steps:
       - uses: actions/checkout@v7

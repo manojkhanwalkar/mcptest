@@ -4,10 +4,13 @@
 
 A Spring Boot REST API for **items** and **persons**, wrapped by an
 [MCP](https://modelcontextprotocol.io) server, with a Java MCP client that reads and writes the
-API's data through MCP.
+API's data through MCP. A second MCP server and client pair serves the dummy credit reports
+from the file system.
 
 ```
 mcp-client ──(MCP over stdin/stdout)──> mcp-server ──(HTTP)──> REST API (localhost:8080/api/v1)
+
+credit-report-mcp-client ──(MCP over stdin/stdout)──> credit-report-mcp-server ──(file I/O)──> test-data/credit-reports/*.md
 ```
 
 | Directory      | What it is                                                                 |
@@ -15,6 +18,8 @@ mcp-client ──(MCP over stdin/stdout)──> mcp-server ──(HTTP)──> R
 | `/` (root)     | REST API server (Spring Boot, spec-first from `src/main/resources/openapi/api.yaml`) |
 | `mcp-server/`  | MCP server that exposes each REST operation as an MCP tool                 |
 | `mcp-client/`  | MCP client that starts `mcp-server` and calls its tools                    |
+| `credit-report-mcp-server/` | MCP server that serves credit report files from a directory   |
+| `credit-report-mcp-client/` | MCP client that starts `credit-report-mcp-server` and prints a report |
 | `test-data/`   | Sample output of the dummy credit report generator (see below)             |
 
 ## Prerequisites
@@ -157,12 +162,68 @@ All data is fake. Creditor and employer names are invented, phone numbers use th
 555-01xx range, SSNs are masked with the never-issued 9xx prefix, and every report starts with
 a "TEST DATA — FICTITIOUS" banner.
 
+## Credit report MCP server and client
+
+`credit-report-mcp-server` serves the credit reports in a directory (by default
+`test-data/credit-reports/`) over MCP. `credit-report-mcp-client` starts it, fetches a report
+through MCP and prints it to the console. Neither needs the REST API.
+
+Build both jars:
+
+```bash
+./mvnw -f credit-report-mcp-server/pom.xml package   # creates credit-report-mcp-server/target/credit-report-mcp-server.jar
+./mvnw -f credit-report-mcp-client/pom.xml package   # creates credit-report-mcp-client/target/credit-report-mcp-client.jar
+```
+
+Run the client:
+
+```bash
+# Print the first report (by report number)
+java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar
+
+# Print one report
+java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar 2416-0737-69
+
+# List the available reports
+java -jar credit-report-mcp-client/target/credit-report-mcp-client.jar list
+```
+
+The report goes to stdout exactly as stored, and status lines go to stderr, so
+`... 2416-0737-69 > report.md` saves just the report. An unknown report number prints the error
+and exits with code 1.
+
+### Tools
+
+| Tool                  | Arguments      | Returns                                                                    |
+|-----------------------|----------------|----------------------------------------------------------------------------|
+| `list_credit_reports` | none           | JSON array: `reportNumber`, `preparedFor`, `dateGenerated`, `fileName`, `sizeBytes` |
+| `get_credit_report`   | `reportNumber` | The report's Markdown text                                                 |
+
+Only files named `credit-report-<reportNumber>.md` directly in the directory are served, and
+`reportNumber` must look like `1234-5678-90`, so the tools can't read other files.
+
+To use the server from Claude Code:
+
+```bash
+claude mcp add credit-reports --env CREDIT_REPORTS_DIR="$(pwd)/test-data/credit-reports" \
+  -- java -jar "$(pwd)/credit-report-mcp-server/target/credit-report-mcp-server.jar"
+```
+
+### Configuration
+
+| Environment variable           | Default                                                        | Used by                               |
+|--------------------------------|----------------------------------------------------------------|---------------------------------------|
+| `CREDIT_REPORTS_DIR`           | `test-data/credit-reports` (looked up in `.` then `..`)        | server (the client passes it along)   |
+| `CREDIT_REPORT_MCP_SERVER_JAR` | `credit-report-mcp-server/target/credit-report-mcp-server.jar` | client                                |
+
 ## Running the tests
 
 ```bash
 ./mvnw test                                        # REST API and credit report generator
 ./mvnw -f mcp-server/pom.xml test                  # MCP server
 ./mvnw -f mcp-client/pom.xml test                  # MCP client
+./mvnw -f credit-report-mcp-server/pom.xml test    # credit report MCP server
+./mvnw -f credit-report-mcp-client/pom.xml test    # credit report MCP client
 ```
 
 The MCP tests don't need the REST API running:
@@ -172,3 +233,7 @@ The MCP tests don't need the REST API running:
   over stdio.
 - **mcp-client** tests start a small fake MCP server (`FakeMcpServer`) over stdio, so they test
   the client without `mcp-server` or the REST API.
+- **credit-report-mcp-server** tests use report files in a temporary directory, and also start
+  the real server as a subprocess over stdio.
+- **credit-report-mcp-client** tests use a fake MCP server (`FakeCreditReportMcpServer`) with
+  canned reports.
