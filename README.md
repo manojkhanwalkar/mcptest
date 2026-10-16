@@ -49,6 +49,11 @@ and set `API_BASE_URL` (see below) to match.
 
 Data is stored in memory, so it is lost when the server stops.
 
+The API has no authentication, so it listens on `127.0.0.1` only and other machines can't
+reach it. To expose it, put it behind a proxy that authenticates callers and set
+`SERVER_ADDRESS` (for example `SERVER_ADDRESS=0.0.0.0`). Request bodies over 64 KB are rejected
+(`api.max-request-body-bytes` in `application.properties`).
+
 ## 2. Build and start the MCP server
 
 Build the server jar:

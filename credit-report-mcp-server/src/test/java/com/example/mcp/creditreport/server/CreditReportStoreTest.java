@@ -90,6 +90,16 @@ class CreditReportStoreTest {
     }
 
     @Test
+    void symbolicLinkOutOfTheDirectoryIsNotServed(@TempDir Path outside) throws IOException {
+        Path secret = Files.writeString(outside.resolve("secret.txt"), "not a credit report");
+        Files.createSymbolicLink(dir.resolve("credit-report-5555-5555-55.md"), secret);
+
+        assertThrows(CreditReportStore.ReportNotFoundException.class, () -> store.read("5555-5555-55"));
+        assertEquals(List.of("0001-0002-03", "2416-0737-69"),
+                store.list().stream().map(CreditReportStore.ReportSummary::reportNumber).toList());
+    }
+
+    @Test
     void missingDirectoryFailsToList() {
         CreditReportStore missing = new CreditReportStore(dir.resolve("nope"));
 

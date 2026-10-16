@@ -20,7 +20,8 @@ import java.util.stream.Stream;
  * <p>Reports are the Markdown files written by the api-server's dummy credit report generator,
  * named {@code credit-report-<reportNumber>.md} where the report number looks like
  * {@code 2416-0737-69}. Only files matching that name are served, and a report number must match
- * that pattern before it is turned into a path, so callers cannot read anything else in (or
+ * that pattern before it is turned into a path, and a file must really live in the directory
+ * (a symbolic link pointing elsewhere is ignored), so callers cannot read anything else in (or
  * outside) the directory.
  */
 public class CreditReportStore {
@@ -64,8 +65,8 @@ public class CreditReportStore {
         }
         try (Stream<Path> files = Files.list(directory)) {
             List<Path> reports = files
-                    .filter(Files::isRegularFile)
                     .filter(f -> FILE_NAME.matcher(f.getFileName().toString()).matches())
+                    .filter(this::isReportFile)
                     .sorted(Comparator.comparing(f -> f.getFileName().toString()))
                     .toList();
             List<ReportSummary> summaries = new ArrayList<>();
@@ -87,10 +88,22 @@ public class CreditReportStore {
             throw new IllegalArgumentException("Report number must look like 1234-5678-90, got: " + reportNumber);
         }
         Path file = directory.resolve(FILE_PREFIX + reportNumber + FILE_SUFFIX);
-        if (!Files.isRegularFile(file)) {
+        if (!isReportFile(file)) {
             throw new ReportNotFoundException(reportNumber);
         }
         return Files.readString(file, StandardCharsets.UTF_8);
+    }
+
+    /** A regular file whose real location (after following links) is directly in the directory. */
+    private boolean isReportFile(Path file) {
+        if (!Files.isRegularFile(file)) {
+            return false;
+        }
+        try {
+            return file.toRealPath().getParent().equals(directory.toRealPath());
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private static ReportSummary summarize(Path file) throws IOException {
