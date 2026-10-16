@@ -75,6 +75,17 @@ class CreditReportMcpServerTest {
     }
 
     @Test
+    void getCreditReportSchemaUsesTheStoresReportNumberPattern() {
+        Tool get = client.listTools().tools().stream()
+                .filter(t -> t.name().equals("get_credit_report"))
+                .findFirst()
+                .orElseThrow();
+        Map<?, ?> reportNumber = (Map<?, ?>) ((Map<?, ?>) get.inputSchema().get("properties")).get("reportNumber");
+
+        assertEquals("^\\d{4}-\\d{4}-\\d{2}$", reportNumber.get("pattern"));
+    }
+
+    @Test
     void listCreditReportsReturnsJsonSummaries() throws Exception {
         CallToolResult result = client.callTool(new CallToolRequest("list_credit_reports", Map.of()));
 

@@ -20,6 +20,7 @@ credit-report-mcp-client ──(MCP over stdin/stdout)──> credit-report-mcp-
 | `mcp-client/`  | MCP client that starts `mcp-server` and calls its tools                    |
 | `credit-report-mcp-server/` | MCP server that serves credit report files from a directory   |
 | `credit-report-mcp-client/` | MCP client that starts `credit-report-mcp-server` and prints a report |
+| `mcp-parent/`  | Shared Maven parent (dependencies, runnable-jar build) for the four MCP modules |
 | `test-data/`   | Sample output of the dummy credit report generator (see below)             |
 
 ## Prerequisites
@@ -123,8 +124,10 @@ java -jar mcp-client/target/mcp-client.jar list_items '{"nameContains":"lap"}'
 java -jar mcp-client/target/mcp-client.jar get_person '{"id":1}'
 ```
 
-The client starts `mcp-server.jar` itself, so you don't need a separate terminal for it. If a
-tool call fails, the client prints the error and exits with code 1.
+The client starts `mcp-server.jar` itself, so you don't need a separate terminal for it. Results
+go to stdout and status lines to stderr, so a single tool call's output is plain JSON (e.g. it can
+be piped to `jq`). If a tool call fails or the arguments aren't a JSON object, the client prints
+the error and exits with code 1.
 
 ### Configuration
 

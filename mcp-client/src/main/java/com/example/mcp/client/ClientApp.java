@@ -2,12 +2,13 @@ package com.example.mcp.client;
 
 import io.modelcontextprotocol.spec.McpSchema.Tool;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * Command-line front end for {@link RestApiMcpClient}.
@@ -18,18 +19,21 @@ import java.util.Map;
  *   java -jar mcp-client/target/mcp-client.jar &lt;tool&gt; ['{json}']   # call one tool
  * </pre>
  *
- * Environment: {@code MCP_SERVER_JAR} (default {@code mcp-server/target/mcp-server.jar}) and
+ * Tool results go to stdout and status lines to stderr, so a single tool call's output is plain
+ * JSON. Environment: {@code MCP_SERVER_JAR} (default {@code mcp-server/target/mcp-server.jar}) and
  * {@code API_BASE_URL} (default {@code http://localhost:8080/api/v1}).
  */
 public class ClientApp {
 
-    public static void main(String[] args) throws Exception {
+    static final String DEFAULT_SERVER_JAR = "mcp-server/target/mcp-server.jar";
+
+    public static void main(String[] args) {
         String serverJar = System.getenv().getOrDefault("MCP_SERVER_JAR", defaultServerJar());
         String apiBaseUrl = System.getenv().getOrDefault("API_BASE_URL", "http://localhost:8080/api/v1");
 
         int exitCode = 0;
         try (RestApiMcpClient client = new RestApiMcpClient(serverJar, apiBaseUrl)) {
-            System.out.println("Connected to " + client.serverInfo().name() + " " + client.serverInfo().version());
+            System.err.println("Connected to " + client.serverInfo().name() + " " + client.serverInfo().version());
             if (args.length == 0) {
                 demo(client);
             } else if (args[0].equals("tools")) {
@@ -40,6 +44,9 @@ public class ClientApp {
             }
         } catch (RestApiMcpClient.ToolCallException e) {
             System.err.println(e.getMessage());
+            exitCode = 1;
+        } catch (IOException e) {
+            System.err.println("Tool arguments must be a JSON object, e.g. '{\"id\":1}': " + e.getMessage());
             exitCode = 1;
         }
         System.exit(exitCode);
@@ -123,9 +130,9 @@ public class ClientApp {
 
     /** Finds the server jar whether we run from the repo root or from mcp-client/. */
     private static String defaultServerJar() {
-        return Arrays.stream(new String[]{"mcp-server/target/mcp-server.jar", "../mcp-server/target/mcp-server.jar"})
+        return Stream.of(DEFAULT_SERVER_JAR, "../" + DEFAULT_SERVER_JAR)
                 .filter(p -> Files.exists(Path.of(p)))
                 .findFirst()
-                .orElse("mcp-server/target/mcp-server.jar");
+                .orElse(DEFAULT_SERVER_JAR);
     }
 }

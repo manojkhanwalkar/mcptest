@@ -28,9 +28,12 @@ public class CreditReportStore {
     /** Report number format used by the generator: {@code dddd-dddd-dd}. */
     public static final Pattern REPORT_NUMBER = Pattern.compile("\\d{4}-\\d{4}-\\d{2}");
 
-    private static final Pattern FILE_NAME = Pattern.compile("credit-report-(" + REPORT_NUMBER.pattern() + ")\\.md");
-    private static final Pattern PREPARED_FOR = Pattern.compile("^\\| \\*\\*Prepared for\\*\\* \\| (.+?) \\|$", Pattern.MULTILINE);
-    private static final Pattern DATE_GENERATED = Pattern.compile("^\\| \\*\\*Date generated\\*\\* \\| (.+?) \\|$", Pattern.MULTILINE);
+    private static final String FILE_PREFIX = "credit-report-";
+    private static final String FILE_SUFFIX = ".md";
+    private static final Pattern FILE_NAME = Pattern.compile(
+            Pattern.quote(FILE_PREFIX) + "(" + REPORT_NUMBER.pattern() + ")" + Pattern.quote(FILE_SUFFIX));
+    private static final Pattern PREPARED_FOR = headerField("Prepared for");
+    private static final Pattern DATE_GENERATED = headerField("Date generated");
 
     /** One report in the directory listing. {@code preparedFor} and {@code dateGenerated} may be null. */
     public record ReportSummary(String reportNumber, String preparedFor, String dateGenerated,
@@ -83,7 +86,7 @@ public class CreditReportStore {
         if (reportNumber == null || !REPORT_NUMBER.matcher(reportNumber).matches()) {
             throw new IllegalArgumentException("Report number must look like 1234-5678-90, got: " + reportNumber);
         }
-        Path file = directory.resolve("credit-report-" + reportNumber + ".md");
+        Path file = directory.resolve(FILE_PREFIX + reportNumber + FILE_SUFFIX);
         if (!Files.isRegularFile(file)) {
             throw new ReportNotFoundException(reportNumber);
         }
@@ -99,6 +102,11 @@ public class CreditReportStore {
                 firstGroup(DATE_GENERATED, text).orElse(null),
                 file.getFileName().toString(),
                 Files.size(file));
+    }
+
+    /** Matches a {@code | **label** | value |} row of the report's header table; group 1 is the value. */
+    private static Pattern headerField(String label) {
+        return Pattern.compile("^\\| \\*\\*" + Pattern.quote(label) + "\\*\\* \\| (.+?) \\|$", Pattern.MULTILINE);
     }
 
     private static Optional<String> firstGroup(Pattern pattern, String text) {

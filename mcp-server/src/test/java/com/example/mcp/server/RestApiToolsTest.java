@@ -145,6 +145,15 @@ class RestApiToolsTest {
     }
 
     @Test
+    void fractionalIdIsRejectedInsteadOfTruncated() {
+        CallToolResult result = call("delete_item", Map.of("id", 1.5));
+
+        assertTrue(result.isError());
+        assertEquals("Argument 'id' is required and must be an integer", text(result));
+        assertTrue(fake.requests().isEmpty());
+    }
+
+    @Test
     void nullArgumentsAreTreatedAsEmpty() {
         fake.respondWith(200, "[]");
 

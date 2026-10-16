@@ -133,7 +133,7 @@ public class RestApiMcpClient implements AutoCloseable {
         return (Map<String, Object>) call("create_person", person);
     }
 
-    /** Pretty-prints any JSON value. */
+    /** Serializes any JSON value to a JSON string. */
     public String toJson(Object value) {
         try {
             return json.writeValueAsString(value);

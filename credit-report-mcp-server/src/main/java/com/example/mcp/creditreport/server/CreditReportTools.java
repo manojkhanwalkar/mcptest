@@ -25,13 +25,14 @@ public class CreditReportTools {
     private static final String LIST_SCHEMA = """
             {"type": "object", "properties": {}}""";
 
+    // The pattern comes from the store so the schema and the server-side check can't drift apart.
     private static final String GET_SCHEMA = """
             {"type": "object",
              "properties": {
-               "reportNumber": {"type": "string", "pattern": "^\\\\d{4}-\\\\d{4}-\\\\d{2}$",
+               "reportNumber": {"type": "string", "pattern": "^%s$",
                                 "description": "Report number, e.g. 2416-0737-69 (see list_credit_reports)"}
              },
-             "required": ["reportNumber"]}""";
+             "required": ["reportNumber"]}""".formatted(CreditReportStore.REPORT_NUMBER.pattern().replace("\\", "\\\\"));
 
     private final CreditReportStore store;
     private final McpJsonMapper json;

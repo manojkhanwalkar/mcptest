@@ -7,9 +7,11 @@ import io.modelcontextprotocol.spec.McpSchema.Tool;
 import io.modelcontextprotocol.spec.McpSchema.ToolAnnotations;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Defines one MCP tool per REST operation in the api-server and turns each tool call into an
@@ -47,7 +49,7 @@ public class RestApiTools {
                             "description": "Digits with optional leading +, spaces, dashes, dots or parentheses"}""";
 
     private static String schema(String properties, String... required) {
-        String req = String.join(", ", java.util.Arrays.stream(required).map(r -> "\"" + r + "\"").toList());
+        String req = Arrays.stream(required).map(r -> "\"" + r + "\"").collect(Collectors.joining(", "));
         return "{\"type\": \"object\", \"properties\": {" + properties + "}, \"required\": [" + req + "]}";
     }
 
@@ -115,14 +117,15 @@ public class RestApiTools {
         String path = endpoint.path();
         if (path.contains("{id}")) {
             Object id = args.remove("id");
-            if (!(id instanceof Number number)) {
+            // Reject fractions rather than truncating them: 1.5 must not act on item 1.
+            if (!(id instanceof Number number) || number.doubleValue() != number.longValue()) {
                 return error("Argument 'id' is required and must be an integer");
             }
             path = path.replace("{id}", Long.toString(number.longValue()));
         }
 
+        boolean hasBody = endpoint.method().equals("POST") || endpoint.method().equals("PUT");
         try {
-            boolean hasBody = endpoint.method().equals("POST") || endpoint.method().equals("PUT");
             RestApiClient.ApiResponse response = api.send(
                     endpoint.method(), path,
                     hasBody ? null : args,
@@ -134,13 +137,17 @@ public class RestApiTools {
             String body = response.body() == null || response.body().isBlank()
                     ? "{\"status\": " + response.status() + ", \"message\": \"" + endpoint.method() + " " + path + " succeeded\"}"
                     : response.body();
-            return CallToolResult.builder().addTextContent(body).isError(false).build();
+            return ok(body);
         } catch (IOException e) {
             return error("Could not reach REST API at " + api.baseUrl() + ": " + e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return error("Interrupted while calling REST API");
         }
+    }
+
+    private static CallToolResult ok(String text) {
+        return CallToolResult.builder().addTextContent(text).isError(false).build();
     }
 
     private static CallToolResult error(String message) {

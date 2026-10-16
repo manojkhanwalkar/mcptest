@@ -126,4 +126,11 @@ class RestApiMcpClientTest {
         assertInstanceOf(String.class, client.toJson(args));
         assertEquals(args, client.parseArguments(client.toJson(args)));
     }
+
+    @Test
+    void parseArgumentsRejectsInvalidJsonAndNonObjects() {
+        // ClientApp turns IOException into a usage message, so nothing else may escape.
+        assertThrows(IOException.class, () -> client.parseArguments("{id: 3"));
+        assertThrows(IOException.class, () -> client.parseArguments("[1, 2]"));
+    }
 }
