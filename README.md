@@ -20,6 +20,7 @@ credit-report-mcp-client ──(MCP over stdin/stdout)──> credit-report-mcp-
 | `mcp-client/`  | MCP client that starts `mcp-server` and calls its tools                    |
 | `credit-report-mcp-server/` | MCP server that serves credit report files from a directory   |
 | `credit-report-mcp-client/` | MCP client that starts `credit-report-mcp-server` and prints a report |
+| `SimpleMCPCalculator/` | Standalone Spring Boot (Spring AI) MCP calculator server and client — see its [README](SimpleMCPCalculator/README.md) |
 | `mcp-parent/`  | Shared Maven parent (dependencies, runnable-jar build) for the four MCP modules |
 | `test-data/`   | Sample output of the dummy credit report generator (see below)             |
 
@@ -232,6 +233,7 @@ claude mcp add credit-reports --env CREDIT_REPORTS_DIR="$(pwd)/test-data/credit-
 ./mvnw -f mcp-client/pom.xml test                  # MCP client
 ./mvnw -f credit-report-mcp-server/pom.xml test    # credit report MCP server
 ./mvnw -f credit-report-mcp-client/pom.xml test    # credit report MCP client
+./mvnw -f SimpleMCPCalculator/pom.xml verify       # calculator MCP server and client
 ```
 
 The MCP tests don't need the REST API running:

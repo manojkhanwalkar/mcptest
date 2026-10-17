@@ -1,0 +1,24 @@
+# Stdout is the MCP channel: no banner, no console logging, no web server.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  ai:
+    mcp:
+      server:
+        name: calculator-mcp-server
+        version: 1.0.0
+        stdio: true
+        type: sync
+        # Only tools are offered; don't advertise empty prompt/resource/completion capabilities.
+        capabilities:
+          prompt: false
+          resource: false
+          completion: false
+        instructions: "Calculator tools: add, subtract, multiply, divide and remainder on two numbers."
+
+logging:
+  threshold:
+    console: off
+  file:
+    name: ${java.io.tmpdir}/calculator-mcp-server.log

@@ -1,0 +1,27 @@
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+  ai:
+    mcp:
+      client:
+        name: calculator-mcp-client
+        type: sync
+        # Only MCP is used here; don't turn the server's tools into Spring AI ChatClient callbacks.
+        toolcallback:
+          enabled: false
+        # No client-side handlers (sampling, elicitation, ...) to scan for.
+        annotation-scanner:
+          enabled: false
+        stdio:
+          connections:
+            calculator:
+              command: java
+              args:
+                - -jar
+                # Override with --calculator.server.jar=/path/to/calculator-mcp-server.jar
+                - ${calculator.server.jar:calculator-mcp-server/target/calculator-mcp-server.jar}
+
+logging:
+  level:
+    root: warn
