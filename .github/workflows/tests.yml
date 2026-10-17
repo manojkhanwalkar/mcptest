@@ -33,8 +33,6 @@ jobs:
             pom: credit-report-mcp-server/pom.xml
           - module: credit-report-mcp-client
             pom: credit-report-mcp-client/pom.xml
-          - module: SimpleMCPCalculator
-            pom: SimpleMCPCalculator/pom.xml
 
     steps:
       - uses: actions/checkout@v7
