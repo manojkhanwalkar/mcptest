@@ -65,6 +65,39 @@ class RecentlyClosedAccountAlertsTest {
     }
 
     @Test
+    void skipsReportsWithAnInvalidDateGenerated(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("credit-report-a.md"),
+                report("BAD DATE", "09/01/2026").replace(date(REPORT_DATE), "02/30/2026"));
+
+        assertEquals(List.of(), RecentlyClosedAccountAlerts.find(dir, warnings));
+        assertTrue(warningBytes.toString().contains("credit-report-a.md"), warningBytes.toString());
+    }
+
+    @Test
+    void ignoresInvalidClosedDates(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("credit-report-a.md"), report("IMPOSSIBLE CLOSE", "02/30/2026"));
+
+        assertEquals(List.of(), RecentlyClosedAccountAlerts.find(dir, warnings));
+    }
+
+    @Test
+    void ignoresClosedDatesOutsideTheAccountsSection(@TempDir Path dir) throws IOException {
+        Files.writeString(dir.resolve("credit-report-a.md"),
+                report("NO RECENT CLOSE", "—") + "## Public records\n\n| | |\n|---|---|\n| Date closed | 09/01/2026 |\n");
+
+        assertEquals(List.of(), RecentlyClosedAccountAlerts.find(dir, warnings));
+    }
+
+    @Test
+    void skipsUnreadableFilesWithAWarningAndCarriesOn(@TempDir Path dir) throws IOException {
+        Files.write(dir.resolve("credit-report-a.md"), new byte[]{'#', ' ', (byte) 0xE9, (byte) 0xFF, '\n'});
+        Files.writeString(dir.resolve("credit-report-b.md"), report("ELENA C MOCKRIDGE", "05/25/2026"));
+
+        assertEquals(List.of("ELENA C MOCKRIDGE"), RecentlyClosedAccountAlerts.find(dir, warnings));
+        assertTrue(warningBytes.toString().contains("credit-report-a.md"), warningBytes.toString());
+    }
+
+    @Test
     void generatedReportsQualify(@TempDir Path dir) throws IOException {
         Path file = CreditReportCreator.create(dir, 7, REPORT_DATE);
         String name = new CreditReportGenerator(7, REPORT_DATE).generate().personalInformation().names().getFirst();
@@ -73,14 +106,18 @@ class RecentlyClosedAccountAlertsTest {
         assertEquals(List.of(name), RecentlyClosedAccountAlerts.find(dir, warnings));
     }
 
-    /** A minimal report in the layout {@link MarkdownCreditReportWriter} writes, dated 10/16/2026. */
+    /** A minimal report in the layout {@link MarkdownCreditReportWriter} writes, dated {@link #REPORT_DATE}. */
     private static String report(String name, String... closedDates) {
         StringBuilder md = new StringBuilder("# Credit Report (Experian consumer report format)\n\n| | |\n|---|---|\n");
         md.append("| **Prepared for** | ").append(name).append(" |\n");
-        md.append("| **Date generated** | 10/16/2026 |\n\n## Accounts\n\n");
+        md.append("| **Date generated** | ").append(date(REPORT_DATE)).append(" |\n\n## Accounts\n\n");
         for (String closed : closedDates) {
             md.append("| Account info | |\n|---|---|\n| Date closed | ").append(closed).append(" |\n\n");
         }
         return md.toString();
+    }
+
+    private static String date(LocalDate d) {
+        return MarkdownCreditReportWriter.DATE.format(d);
     }
 }

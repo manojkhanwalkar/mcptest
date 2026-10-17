@@ -11,6 +11,7 @@ import com.example.testdata.creditreport.CreditReport.PublicRecord;
 import java.text.NumberFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 import java.util.List;
 import java.util.Locale;
 
@@ -21,7 +22,15 @@ import java.util.Locale;
  */
 public class MarkdownCreditReportWriter {
 
-    private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+    /** Format of every date in the report; strict, so parsing rejects dates such as 02/30. */
+    static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("MM/dd/uuuu").withResolverStyle(ResolverStyle.STRICT);
+
+    // Labels and headings that other code in this package parses back out of the Markdown.
+    static final String PREPARED_FOR = "Prepared for";
+    static final String DATE_GENERATED = "Date generated";
+    static final String ACCOUNTS_HEADING = "## Accounts";
+    static final String DATE_CLOSED = "Date closed";
+
     private static final DateTimeFormatter MONTH = DateTimeFormatter.ofPattern("MMM yy", Locale.US);
     private static final NumberFormat MONEY = NumberFormat.getCurrencyInstance(Locale.US);
 
@@ -37,8 +46,8 @@ public class MarkdownCreditReportWriter {
         md.append("> **TEST DATA — FICTITIOUS.** This report was machine-generated for software testing. ")
                 .append("It does not describe a real person and is not issued by Experian.\n\n");
         md.append("| | |\n|---|---|\n");
-        md.append("| **Prepared for** | ").append(person.names().getFirst()).append(" |\n");
-        md.append("| **Date generated** | ").append(date(report.reportDate())).append(" |\n");
+        md.append("| **").append(PREPARED_FOR).append("** | ").append(person.names().getFirst()).append(" |\n");
+        md.append("| **").append(DATE_GENERATED).append("** | ").append(date(report.reportDate())).append(" |\n");
         md.append("| **Report number** | ").append(report.reportNumber()).append(" |\n\n");
 
         atAGlance(md, report);
@@ -120,7 +129,7 @@ public class MarkdownCreditReportWriter {
     }
 
     private static void accounts(StringBuilder md, List<Account> accounts, LocalDate reportDate) {
-        md.append("## Accounts\n\n");
+        md.append(ACCOUNTS_HEADING).append("\n\n");
         int n = 1;
         for (Account a : accounts) {
             md.append("### ").append(n++).append(". ").append(a.creditorName()).append(" — ")
@@ -131,7 +140,7 @@ public class MarkdownCreditReportWriter {
             row(md, "Account type", a.type().label());
             row(md, "Responsibility", a.responsibility());
             row(md, "Date opened", date(a.dateOpened()));
-            row(md, "Date closed", a.dateClosed() == null ? "—" : date(a.dateClosed()));
+            row(md, DATE_CLOSED, a.dateClosed() == null ? "—" : date(a.dateClosed()));
             row(md, "Status", "**" + a.status() + "**");
             row(md, "Status updated", date(a.statusUpdated()));
             row(md, "Balance", money(a.balance()));
