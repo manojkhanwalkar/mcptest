@@ -175,6 +175,24 @@ All data is fake. Creditor and employer names are invented, phone numbers use th
 555-01xx range, SSNs are masked with the never-issued 9xx prefix, and every report starts with
 a "TEST DATA — FICTITIOUS" banner.
 
+### Recently closed account alerts
+
+`RecentlyClosedAccountAlerts` reads the generated reports in a directory and prints, one per
+line, the "Prepared for" name on each report with an account closed in the 12 months up to the
+report's "Date generated":
+
+```bash
+./mvnw -q compile
+java -cp target/classes com.example.testdata.creditreport.RecentlyClosedAccountAlerts [reportsDir]
+```
+
+`reportsDir` defaults to `test-data/credit-reports`. Only `.md` files directly in that directory
+are read, in file-name order; files without a name or report date are skipped with a warning on
+standard error. If no report qualifies the tool prints "No credit reports with a recently closed
+account." A missing directory is an error (exit status 1). The window is measured from each
+report's own date, so the output for a file doesn't change over time. Every freshly generated
+report has a recently closed account, so every one of them is listed.
+
 ## Credit report MCP server and client
 
 `credit-report-mcp-server` serves the credit reports in a directory (by default
