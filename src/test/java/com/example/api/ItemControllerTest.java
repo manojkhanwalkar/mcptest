@@ -76,7 +76,9 @@ class ItemControllerTest {
     @Test
     void rejectsIdBelowMinimum() throws Exception {
         mockMvc.perform(get("/api/v1/items/0"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                // names the parameter, not the Java method (was "getItem.id: ...")
+                .andExpect(jsonPath("$.detail").value("id: must be greater than or equal to 1"));
     }
 
     /** nameContains is a case-insensitive substring match ("gadget" matches "Blue Gadget"). */
