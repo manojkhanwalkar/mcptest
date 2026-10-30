@@ -1,0 +1,33 @@
+# Keeps the commit-SHA pins in .github/workflows current: Dependabot opens a PR that updates
+# both the SHA and the version comment when an action releases a new version. The Maven
+# entries do the same for each project's dependencies.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /mcp-parent
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /mcp-server
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /mcp-client
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /credit-report-mcp-server
+    schedule:
+      interval: weekly
+  - package-ecosystem: maven
+    directory: /credit-report-mcp-client
+    schedule:
+      interval: weekly
