@@ -7,6 +7,9 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -77,8 +80,10 @@ class ItemControllerTest {
     void rejectsIdBelowMinimum() throws Exception {
         mockMvc.perform(get("/api/v1/items/0"))
                 .andExpect(status().isBadRequest())
-                // names the parameter, not the Java method (was "getItem.id: ...")
-                .andExpect(jsonPath("$.detail").value("id: must be greater than or equal to 1"));
+                // names the parameter, not the Java method (was "getItem.id: ..."); the message
+                // itself is localized by the JVM locale, so only the prefix is checked
+                .andExpect(jsonPath("$.detail").value(startsWith("id: ")))
+                .andExpect(jsonPath("$.detail").value(not(containsString("getItem"))));
     }
 
     /** nameContains is a case-insensitive substring match ("gadget" matches "Blue Gadget"). */

@@ -2,6 +2,7 @@ package com.example.api.exception;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -9,8 +10,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 /**
  * Converts exceptions thrown by any controller into RFC 9457 problem+json responses
@@ -35,23 +36,46 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * {@code minimum: 1}) → 400. These are raised by the {@code @Validated} annotation on the
      * generated API interfaces, which Spring's base handler doesn't map on its own.
      *
-     * <p>The detail names only the parameter (e.g. {@code id: must be greater than or equal to 1}),
-     * not the full property path, which would expose Java method names such as {@code getItem}.
+     * <p>The detail names the parameter (e.g. {@code id: must be greater than or equal to 1}),
+     * not the raw property path, which would expose Java method names such as {@code getItem}.
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ProblemDetail handleConstraintViolation(ConstraintViolationException ex) {
-        String detail = ex.getConstraintViolations().stream()
-                .map(v -> parameterName(v) + ": " + v.getMessage())
+        Set<ConstraintViolation<?>> violations = ex.getConstraintViolations();
+        if (violations == null || violations.isEmpty()) {
+            // Thrown by hand rather than by method validation: its message is our own text.
+            return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+                    ex.getMessage() != null ? ex.getMessage() : "Invalid request");
+        }
+        String detail = violations.stream()
+                .map(v -> clientPath(v.getPropertyPath()) + ": " + v.getMessage())
                 .sorted()
                 .collect(Collectors.joining(", "));
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
     }
 
-    /** The last node of the violation's path: the parameter or field name. */
-    private static String parameterName(ConstraintViolation<?> violation) {
-        return StreamSupport.stream(violation.getPropertyPath().spliterator(), false)
-                .reduce((first, second) -> second)
-                .map(Path.Node::getName)
-                .orElse("value");
+    /**
+     * The violation's path as the client knows it: parameter and property names with element
+     * indexes (e.g. {@code items[2].name}). The Java method node and validator-internal nodes
+     * such as {@code <list element>} or {@code <return value>} are left out.
+     */
+    private static String clientPath(Path path) {
+        StringBuilder sb = new StringBuilder();
+        for (Path.Node node : path) {
+            if (node.getKind() == ElementKind.METHOD || node.getKind() == ElementKind.CONSTRUCTOR) {
+                continue;
+            }
+            if (node.isInIterable() && !sb.isEmpty()) {
+                sb.append('[').append(node.getIndex() != null ? node.getIndex() : node.getKey() != null ? node.getKey() : "").append(']');
+            }
+            String name = node.getName();
+            if (name != null && !name.startsWith("<")) {
+                if (!sb.isEmpty()) {
+                    sb.append('.');
+                }
+                sb.append(name);
+            }
+        }
+        return sb.isEmpty() ? "request" : sb.toString();
     }
 }

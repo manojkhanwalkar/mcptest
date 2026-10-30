@@ -41,9 +41,9 @@ authentication is the main open decision.
 | A06 Unbounded in-memory store | Medium | Deferred (needs decision) | Limit would add a new error response to the API contract |
 | A01 Symlinks escape the credit report directory | Low | Fixed | Real path must be directly inside the directory |
 | A03 Maven wrapper download not checksum-verified | Low | Fixed | `distributionSha256Sum` pinned |
-| A03 GitHub Actions pinned to mutable tags | Low | Not fixed (recommendation) | Pin to commit SHAs with Dependabot |
+| A03 GitHub Actions pinned to mutable tags | Low | Fixed | Pinned to commit SHAs; Dependabot keeps actions and Maven dependencies current |
 | A05 Stored prompt injection reaches destructive tools | Low | Not fixed (recommendation) | Client-side confirmation |
-| A10 Validation errors expose Java method names | Info | Not fixed | Cosmetic |
+| A10 Validation errors expose Java method names | Info | Fixed | Detail names the parameter path, not the Java method |
 
 **Verification:**
 - Baseline: all modules built and tests passed (api-server 16, mcp-server 21, mcp-client 12,
